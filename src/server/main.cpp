@@ -1,6 +1,7 @@
 #include "server.hpp"
 #include <iostream>
 #include <csignal>
+#include <cstdlib>
 
 static city::Server* g_server = nullptr;
 
@@ -14,10 +15,13 @@ void signal_handler(int signal) {
 }
 
 int main(int argc, char* argv[]) {
-    (void)argc;
-    (void)argv;
-
     std::cout << "City Server v0.1.0\n";
+
+    // Parse port from command line
+    city::u16 port = 7777;
+    if (argc > 1) {
+        port = static_cast<city::u16>(std::atoi(argv[1]));
+    }
 
     // Set up signal handling
     std::signal(SIGINT, signal_handler);
@@ -31,8 +35,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // TODO: Parse command line arguments for port, etc.
-    if (!server.start(7777)) {
+    if (!server.start(port)) {
         std::cerr << "Failed to start server\n";
         return 1;
     }

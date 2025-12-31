@@ -2,11 +2,31 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug: city",
+            "name": "Client (Standalone)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/build/debug/city",
-            "args": [],
+            "program": "${workspaceFolder}/build/debug/src/client/city_client",
+            "args": ["--name", "Dev"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "CMake: Build (Debug)",
+            "stopOnEntry": false
+        },
+        {
+            "name": "Client (Connect)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/debug/src/client/city_client",
+            "args": ["--connect", "localhost:9999", "--name", "Dev"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "CMake: Build (Debug)",
+            "stopOnEntry": false
+        },
+        {
+            "name": "Server",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/debug/src/server/city_server",
+            "args": ["9999"],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "CMake: Build (Debug)",
             "stopOnEntry": false
@@ -20,6 +40,13 @@
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "CMake: Build (Debug)",
             "stopOnEntry": false
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Server + Client",
+            "configurations": ["Server", "Client (Connect)"],
+            "stopAll": true
         }
     ]
 }

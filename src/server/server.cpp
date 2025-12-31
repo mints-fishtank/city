@@ -22,7 +22,7 @@ bool Server::init() {
     connection_ = std::make_unique<ServerConnection>(*this);
     game_state_ = std::make_unique<GameState>(world_, tilemap_);
     round_manager_ = std::make_unique<RoundManager>(*this);
-    input_processor_ = std::make_unique<InputProcessor>(world_);
+    input_processor_ = std::make_unique<InputProcessor>(world_, tilemap_);
     entity_sync_ = std::make_unique<EntitySync>(world_);
 
     // Load content manifest
@@ -133,8 +133,14 @@ void Server::on_client_connected(ClientSession& session) {
     NetEntityId net_id = world_.allocate_net_id();
     world_.assign_net_id(player, net_id);
 
+    Vec2i spawn_tile{32, 32};
+    Vec2f spawn_pos{
+        static_cast<f32>(spawn_tile.x) + 0.5f,
+        static_cast<f32>(spawn_tile.y) + 0.5f
+    };
+
     world_.add_component<Transform>(player, Transform{
-        .position = {32.0f, 32.0f},  // Center of map
+        .position = spawn_pos,
         .velocity = {0.0f, 0.0f},
         .rotation = 0.0f
     });
@@ -144,7 +150,10 @@ void Server::on_client_connected(ClientSession& session) {
         .session_id = session.id(),
         .team = 0,
         .is_local = false,
-        .move_speed = 4.0f
+        .grid_pos = spawn_tile,
+        .move_target = spawn_tile,
+        .move_progress = 0.0f,
+        .is_moving = false
     });
 
     session.set_player_entity(net_id);
@@ -160,11 +169,38 @@ void Server::on_client_connected(ClientSession& session) {
 
     session.send(net::Message::create(net::MessageType::ServerHello, hello));
 
-    // TODO: Send full game state
+    // Send existing players to the new client
+    world_.each<Transform, Player>([&](Entity e, Transform& t, Player& p) {
+        NetEntityId existing_id = world_.get_net_id(e);
+        if (existing_id == net_id) return;  // Skip self
+
+        net::EntitySpawnPayload spawn{
+            .entity_id = existing_id,
+            .position = t.position,
+            .name = p.name,
+            .is_player = true
+        };
+        session.send(net::Message::create(net::MessageType::EntitySpawn, spawn));
+    });
+
+    // Broadcast new player to all existing clients
+    net::EntitySpawnPayload spawn{
+        .entity_id = net_id,
+        .position = spawn_pos,
+        .name = session.name(),
+        .is_player = true
+    };
+    connection_->broadcast(net::Message::create(net::MessageType::EntitySpawn, spawn));
 }
 
 void Server::on_client_disconnected(ClientSession& session) {
     std::cout << "Client disconnected: " << session.name() << "\n";
+
+    // Broadcast despawn to all clients
+    net::EntityDespawnPayload despawn{
+        .entity_id = session.player_entity()
+    };
+    connection_->broadcast(net::Message::create(net::MessageType::EntityDespawn, despawn));
 
     // Remove player entity
     Entity player = world_.get_by_net_id(session.player_entity());

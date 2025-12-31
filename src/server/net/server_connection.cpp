@@ -6,8 +6,12 @@
 namespace city {
 
 ServerConnection::ServerConnection(Server& server) : server_(server) {
-    if (enet_initialize() != 0) {
-        std::cerr << "Failed to initialize ENet\n";
+    int result = enet_initialize();
+    if (result != 0) {
+        std::cerr << "Failed to initialize ENet (error " << result << ")\n";
+        enet_initialized_ = false;
+    } else {
+        enet_initialized_ = true;
     }
 }
 
@@ -17,6 +21,11 @@ ServerConnection::~ServerConnection() {
 }
 
 bool ServerConnection::start(u16 port) {
+    if (!enet_initialized_) {
+        std::cerr << "ENet was not initialized\n";
+        return false;
+    }
+
     ENetAddress address;
     address.host = ENET_HOST_ANY;
     address.port = port;
@@ -27,6 +36,7 @@ bool ServerConnection::start(u16 port) {
         return false;
     }
 
+    std::cout << "Listening on port " << port << "\n";
     return true;
 }
 
@@ -131,6 +141,11 @@ void ServerConnection::on_disconnect(void* peer) {
     if (session) {
         std::cout << "Client disconnected (session " << session->id() << ")\n";
 
+        // Notify server before removing
+        if (session->state() == SessionState::Ready) {
+            server_.on_client_disconnected(*session);
+        }
+
         // Find and remove session
         for (auto it = sessions_.begin(); it != sessions_.end(); ++it) {
             if (it->get() == session) {
@@ -161,11 +176,12 @@ void ServerConnection::on_receive(void* peer, const u8* data, size_t size) {
         session->set_name(hello.player_name);
         session->set_state(SessionState::Ready);
 
-        // Notify server
-        // server_.on_client_connected(*session);
+        // Notify server of new client
+        server_.on_client_connected(*session);
     }
 
-    session->on_message(*msg);
+    // Forward message to server for game logic
+    server_.on_client_message(*session, *msg);
 }
 
 } // namespace city

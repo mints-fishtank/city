@@ -2,7 +2,7 @@
 
 This document tracks implementation progress and provides guidance for continuing development.
 
-## Current Status: Phase 1 Complete (Foundation)
+## Current Status: Phase 4 Complete (Player Movement)
 
 **Last Updated**: December 2025
 
@@ -28,93 +28,101 @@ Core infrastructure is in place. The project compiles and has the basic architec
 | Server scaffold | ✅ | src/server/*.cpp |
 | Unit tests | ✅ | tests/core/*.cpp |
 
-### Phase 2: Networking Core 🔲 NOT STARTED
+### Phase 2: Networking Core ✅ COMPLETE
 
-Make client and server actually communicate.
+Client and server communicate with full entity sync.
 
 | Task | Status | Priority | Description |
 |------|--------|----------|-------------|
-| Server startup | 🔲 | HIGH | ENet host initialization, listening |
-| Client connect | 🔲 | HIGH | Connect to server, handshake |
-| Hello exchange | 🔲 | HIGH | Protocol version validation |
-| Session management | 🔲 | HIGH | Track connected clients |
-| Player spawn | 🔲 | HIGH | Create entity on connect |
-| Input transmission | 🔲 | HIGH | Send PlayerInput messages |
-| State broadcast | 🔲 | HIGH | Send DeltaState to clients |
-| Disconnect handling | 🔲 | MEDIUM | Clean up on disconnect |
+| Server startup | ✅ | HIGH | ENet host initialization, listening |
+| Client connect | ✅ | HIGH | Connect to server, handshake |
+| Hello exchange | ✅ | HIGH | Protocol version validation |
+| Session management | ✅ | HIGH | Track connected clients |
+| Player spawn | ✅ | HIGH | Create entity on connect |
+| Input transmission | ✅ | HIGH | Send PlayerInput messages |
+| State broadcast | ✅ | HIGH | Send DeltaState to clients |
+| Entity spawn/despawn | ✅ | HIGH | Notify clients of player join/leave |
+| Disconnect handling | ✅ | MEDIUM | Clean up on disconnect |
 | Ping/pong | 🔲 | LOW | Latency measurement |
 
-**Key Files to Modify:**
+**Key Files Modified:**
 - `src/server/net/server_connection.cpp` - Connection handling
 - `src/client/net/client_connection.cpp` - Connect logic
-- `src/server/server.cpp` - Message dispatch
-- `src/client/client.cpp` - Message handling
+- `src/server/server.cpp` - Message dispatch, spawn/despawn broadcasts
+- `src/client/client.cpp` - Message handling, remote entity creation
+- `src/server/systems/entity_sync.cpp` - Position broadcast
+- `src/core/net/message.hpp` - EntitySpawn/Despawn payloads
 
 **Testing:**
 ```bash
 # Terminal 1: Start server
-./build/debug/city_server
+./run.sh server
 
 # Terminal 2: Start client
-./build/debug/city_client
+./run.sh connect Alice
+
+# Terminal 3: Start another client
+./run.sh connect Bob
 ```
 
-### Phase 3: Rendering 🔲 NOT STARTED
+### Phase 3: Rendering ⚡ IN PROGRESS
 
-Implement actual Vulkan rendering.
+Using SDL3 2D renderer for development. Vulkan deferred.
 
 | Task | Status | Priority | Description |
 |------|--------|----------|-------------|
-| Vulkan instance | 🔲 | HIGH | Create VkInstance |
-| Surface creation | 🔲 | HIGH | SDL3 Vulkan surface |
-| Device selection | 🔲 | HIGH | Pick physical/logical device |
-| Swapchain | 🔲 | HIGH | Create swapchain |
-| Render pass | 🔲 | HIGH | Basic render pass |
-| Pipeline | 🔲 | HIGH | 2D sprite pipeline |
-| Sprite batching | 🔲 | MEDIUM | Efficient sprite rendering |
-| Tile rendering | 🔲 | MEDIUM | Render tile chunks |
-| Camera | 🔲 | MEDIUM | View transformation |
+| SDL2D renderer | ✅ | HIGH | Basic 2D rendering with SDL3 |
+| Tile rendering | ✅ | HIGH | Render tilemap with grid |
+| Entity rendering | ✅ | HIGH | Render player entities |
+| Camera system | ✅ | HIGH | Follow player, zoom in/out |
+| Vulkan instance | 🔲 | LOW | Create VkInstance (deferred) |
+| Sprite batching | 🔲 | LOW | Efficient sprite rendering |
 | Texture loading | 🔲 | MEDIUM | Load sprites from files |
 
-**Key Files to Modify:**
-- `src/client/render/vulkan/vk_context.cpp` - Vulkan setup
-- `src/client/render/renderer.cpp` - Render loop
-- `src/client/render/sprite_batch.cpp` - Batched drawing
-
-**Resources:**
-- [Vulkan Tutorial](https://vulkan-tutorial.com/)
-- [SDL3 Vulkan Guide](https://wiki.libsdl.org/SDL3/CategoryVulkan)
-
-### Phase 4: Player Movement 🔲 NOT STARTED
-
-Complete movement with prediction.
-
-| Task | Status | Priority | Description |
-|------|--------|----------|-------------|
-| Server movement | 🔲 | HIGH | Authoritative position update |
-| Collision detection | 🔲 | HIGH | Tile-based collision |
-| Input processing | 🔲 | HIGH | Server processes client input |
-| State sync | 🔲 | HIGH | Send positions to clients |
-| Client prediction | 🔲 | HIGH | Predict local movement |
-| Reconciliation | 🔲 | HIGH | Correct prediction errors |
-| Interpolation | 🔲 | MEDIUM | Smooth remote players |
+**Current State:**
+The client uses SDL3's built-in 2D renderer for quick iteration. This is sufficient for gameplay development. Vulkan can be added later for performance.
 
 **Key Files:**
-- `src/core/game/systems/movement.cpp` - Movement logic
-- `src/server/systems/input_processor.cpp` - Input handling
-- `src/client/prediction/prediction.cpp` - Prediction/reconciliation
+- `src/client/render/renderer.cpp` - SDL2D rendering
+- `src/client/render/renderer.hpp` - Renderer interface
 
-### Phase 5: Entity Sync 🔲 NOT STARTED
+### Phase 4: Player Movement ✅ COMPLETE
 
-Full entity synchronization.
+Grid-locked tile movement with smooth animation (like SS13).
 
 | Task | Status | Priority | Description |
 |------|--------|----------|-------------|
-| Full state send | 🔲 | HIGH | Send all entities on connect |
-| Delta tracking | 🔲 | HIGH | Track changed components |
-| Delta broadcast | 🔲 | HIGH | Send only changes per tick |
-| Entity spawn | 🔲 | MEDIUM | Notify clients of new entities |
-| Entity despawn | 🔲 | MEDIUM | Notify clients of removed entities |
+| Grid-locked movement | ✅ | HIGH | Players move tile-by-tile |
+| Tile collision | ✅ | HIGH | Can't move into walls |
+| Smooth animation | ✅ | HIGH | 0.15s animated transition between tiles |
+| Input queuing | ✅ | HIGH | Queue next move during current move |
+| Server authority | ✅ | HIGH | Server validates and applies moves |
+| Client prediction | ✅ | HIGH | Predict local movement |
+| Reconciliation | ✅ | HIGH | Correct prediction errors (>0.5 tile) |
+| Interpolation | ✅ | MEDIUM | Smooth remote players |
+
+**Movement System:**
+- Players occupy tile centers (position = tile + 0.5)
+- Press direction to move one tile (0.15 second animation)
+- Can queue next direction while moving
+- Server validates collision, client predicts same
+
+**Key Files:**
+- `src/core/game/components/player.hpp` - Grid state (grid_pos, move_target, move_progress)
+- `src/server/systems/input_processor.cpp` - Server grid movement
+- `src/client/prediction/prediction.cpp` - Client grid movement prediction
+- `src/client/prediction/interpolation.cpp` - Remote player interpolation
+
+### Phase 5: Entity Sync ✅ COMPLETE
+
+Full entity synchronization working.
+
+| Task | Status | Priority | Description |
+|------|--------|----------|-------------|
+| Entity spawn broadcast | ✅ | HIGH | Notify clients of new entities |
+| Entity despawn broadcast | ✅ | HIGH | Notify clients of removed entities |
+| Delta broadcast | ✅ | HIGH | Send position changes per tick |
+| Full state send | 🔲 | MEDIUM | Send all entities on connect (optional) |
 | Interest management | 🔲 | LOW | Only sync nearby entities |
 
 ### Phase 6: Chat System 🔲 NOT STARTED

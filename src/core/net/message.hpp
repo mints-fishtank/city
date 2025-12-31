@@ -224,4 +224,39 @@ struct PlayerInputPayload {
     }
 };
 
+// Entity spawn notification
+struct EntitySpawnPayload {
+    NetEntityId entity_id;
+    Vec2f position;
+    std::string name;       // Player name (empty for non-players)
+    bool is_player;
+
+    void serialize(Serializer& s) const {
+        s.write_u32(entity_id);
+        s.write_vec2f(position);
+        s.write_string(name);
+        s.write_bool(is_player);
+    }
+
+    void deserialize(Deserializer& d) {
+        entity_id = d.read_u32();
+        position = d.read_vec2f();
+        name = d.read_string();
+        is_player = d.read_bool();
+    }
+};
+
+// Entity despawn notification
+struct EntityDespawnPayload {
+    NetEntityId entity_id;
+
+    void serialize(Serializer& s) const {
+        s.write_u32(entity_id);
+    }
+
+    void deserialize(Deserializer& d) {
+        entity_id = d.read_u32();
+    }
+};
+
 } // namespace city::net

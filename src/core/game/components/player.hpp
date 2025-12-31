@@ -13,25 +13,37 @@ struct Player {
     u8 team{0};                         // Team/faction ID
     bool is_local{false};               // True for the local player on client
 
-    // Movement settings
-    f32 move_speed{4.0f};               // Tiles per second
+    // Grid movement settings
+    static constexpr f32 MOVE_DURATION = 0.15f;  // Seconds to move one tile
 
-    // State
-    bool is_moving{false};
+    // Grid movement state
+    Vec2i grid_pos{0, 0};               // Current tile position
+    Vec2i move_target{0, 0};            // Target tile when moving
+    f32 move_progress{0.0f};            // 0.0 = at grid_pos, 1.0 = at move_target
+    bool is_moving{false};              // True when transitioning between tiles
+
+    // Input state
     Vec2i input_direction{0, 0};        // Current movement input (-1, 0, or 1 for each axis)
+    Vec2i queued_direction{0, 0};       // Direction queued during current move
 
     void serialize(Serializer& s) const {
         s.write_string(name);
         s.write_u32(session_id);
         s.write_u8(team);
-        s.write_f32(move_speed);
+        s.write_vec2i(grid_pos);
+        s.write_vec2i(move_target);
+        s.write_f32(move_progress);
+        s.write_bool(is_moving);
     }
 
     void deserialize(Deserializer& d) {
         name = d.read_string();
         session_id = d.read_u32();
         team = d.read_u8();
-        move_speed = d.read_f32();
+        grid_pos = d.read_vec2i();
+        move_target = d.read_vec2i();
+        move_progress = d.read_f32();
+        is_moving = d.read_bool();
     }
 };
 

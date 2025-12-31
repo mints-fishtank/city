@@ -11,9 +11,11 @@ void EntitySync::broadcast(ServerConnection& connection, u32 tick) {
     Serializer s;
     s.write_u32(tick);
 
-    // Count entities to sync
+    // Count entities with valid net IDs
     u32 count = 0;
-    world_.each<Transform>([&count](Entity, Transform&) { ++count; });
+    world_.each<Transform>([this, &count](Entity e, Transform&) {
+        if (world_.get_net_id(e) != INVALID_NET_ENTITY_ID) ++count;
+    });
     s.write_u32(count);
 
     // Serialize entity states
@@ -43,9 +45,11 @@ void EntitySync::send_full_state(ClientSession& session, u32 tick) {
     Serializer s;
     s.write_u32(tick);
 
-    // Serialize all entities
+    // Count entities with valid net IDs
     u32 count = 0;
-    world_.each<Transform>([&count](Entity, Transform&) { ++count; });
+    world_.each<Transform>([this, &count](Entity e, Transform&) {
+        if (world_.get_net_id(e) != INVALID_NET_ENTITY_ID) ++count;
+    });
     s.write_u32(count);
 
     world_.each<Transform>([this, &s](Entity e, Transform& transform) {

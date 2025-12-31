@@ -49,6 +49,7 @@ private:
     void* host_{nullptr};
     std::vector<std::unique_ptr<ClientSession>> sessions_;
     u32 next_session_id_{1};
+    bool enet_initialized_{false};
 };
 
 } // namespace city

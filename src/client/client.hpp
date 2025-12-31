@@ -3,6 +3,7 @@
 #include "core/ecs/world.hpp"
 #include "core/grid/tilemap.hpp"
 #include "core/net/protocol.hpp"
+#include "core/net/message.hpp"
 #include <memory>
 #include <string>
 
@@ -12,6 +13,7 @@ namespace city {
 class Renderer;
 class InputManager;
 class PredictionSystem;
+class InterpolationSystem;
 class ClientConnection;
 class ContentDownloader;
 
@@ -41,6 +43,9 @@ public:
     // Disconnect from server
     void disconnect();
 
+    // Set player name (before connecting)
+    void set_player_name(const std::string& name) { player_name_ = name; }
+
     // Get current state
     ClientState state() const { return state_; }
 
@@ -52,6 +57,7 @@ private:
     void render();
     void handle_events();
     void process_network();
+    void create_test_world();
 
     ClientState state_{ClientState::Disconnected};
     bool running_{false};
@@ -61,16 +67,31 @@ private:
     TileMap tilemap_;
     Entity local_player_{Entity::null()};
 
-    // Subsystems (will be implemented later)
+    // Subsystems
     std::unique_ptr<Renderer> renderer_;
     std::unique_ptr<InputManager> input_;
     std::unique_ptr<PredictionSystem> prediction_;
+    std::unique_ptr<InterpolationSystem> interpolation_;
     std::unique_ptr<ClientConnection> connection_;
     std::unique_ptr<ContentDownloader> content_;
 
     // Timing
     u32 current_tick_{0};
     f32 tick_accumulator_{0.0f};
+
+    // Networking state
+    u32 session_id_{0};
+    NetEntityId player_net_id_{0};
+    u32 last_server_tick_{0};
+    std::string player_name_{"Player"};
+
+    // Message handlers
+    void handle_server_hello(const net::Message& msg);
+    void handle_entity_spawn(const net::Message& msg);
+    void handle_entity_despawn(const net::Message& msg);
+    void handle_entity_update(const net::Message& msg);
+    void handle_delta_state(const net::Message& msg);
+    void send_input();
 };
 
 } // namespace city

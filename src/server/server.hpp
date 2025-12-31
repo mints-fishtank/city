@@ -40,15 +40,15 @@ public:
     TileMap& tilemap() { return tilemap_; }
     u32 current_tick() const { return current_tick_; }
 
+    // Handle client events (called by ServerConnection)
+    void on_client_connected(ClientSession& session);
+    void on_client_disconnected(ClientSession& session);
+    void on_client_message(ClientSession& session, const net::Message& msg);
+
 private:
     void update(f32 dt);
     void process_network();
     void broadcast_state();
-
-    // Handle client events
-    void on_client_connected(ClientSession& session);
-    void on_client_disconnected(ClientSession& session);
-    void on_client_message(ClientSession& session, const net::Message& msg);
 
     bool running_{false};
     u32 current_tick_{0};
