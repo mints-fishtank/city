@@ -112,7 +112,6 @@ void PredictionSystem::reconcile(u32 server_tick, const EntityState& server_stat
     player->move_target = server_state.move_target;
     player->is_moving = server_state.is_moving;
     player->input_direction = local_input;  // Keep local input, not server echo
-    player->queued_direction = {0, 0};  // Clear queue - replay will reconstruct it
 
     // Get inputs that haven't been processed by the server yet
     // Server state at tick T includes effects of inputs up to tick T

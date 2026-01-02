@@ -242,49 +242,56 @@ void Client::handle_events() {
                 break;
 
             case SDL_EVENT_KEY_DOWN:
-            case SDL_EVENT_KEY_UP: {
-                bool pressed = (event.type == SDL_EVENT_KEY_DOWN);
-
-                // Handle movement directly for now
-                auto* player = world_.get_component<Player>(local_player_);
-                if (player) {
-                    switch (event.key.scancode) {
-                        case SDL_SCANCODE_W:
-                        case SDL_SCANCODE_UP:
-                            player->input_direction.y = pressed ? -1 : 0;
-                            break;
-                        case SDL_SCANCODE_S:
-                        case SDL_SCANCODE_DOWN:
-                            player->input_direction.y = pressed ? 1 : 0;
-                            break;
-                        case SDL_SCANCODE_A:
-                        case SDL_SCANCODE_LEFT:
-                            player->input_direction.x = pressed ? -1 : 0;
-                            break;
-                        case SDL_SCANCODE_D:
-                        case SDL_SCANCODE_RIGHT:
-                            player->input_direction.x = pressed ? 1 : 0;
-                            break;
-                        case SDL_SCANCODE_EQUALS:
-                        case SDL_SCANCODE_KP_PLUS:
-                            if (pressed) renderer_->set_camera_zoom(renderer_->camera_zoom() * 1.2f);
-                            break;
-                        case SDL_SCANCODE_MINUS:
-                        case SDL_SCANCODE_KP_MINUS:
-                            if (pressed) renderer_->set_camera_zoom(renderer_->camera_zoom() / 1.2f);
-                            break;
-                        case SDL_SCANCODE_ESCAPE:
-                            if (pressed) running_ = false;
-                            break;
-                        default:
-                            break;
-                    }
+                // Handle non-movement keys via events
+                switch (event.key.scancode) {
+                    case SDL_SCANCODE_EQUALS:
+                    case SDL_SCANCODE_KP_PLUS:
+                        renderer_->set_camera_zoom(renderer_->camera_zoom() * 1.2f);
+                        break;
+                    case SDL_SCANCODE_MINUS:
+                    case SDL_SCANCODE_KP_MINUS:
+                        renderer_->set_camera_zoom(renderer_->camera_zoom() / 1.2f);
+                        break;
+                    case SDL_SCANCODE_ESCAPE:
+                        running_ = false;
+                        break;
+                    default:
+                        break;
                 }
                 break;
-            }
 
             default:
                 break;
+        }
+    }
+
+    // Read movement input from current keyboard state (not events)
+    // This ensures input_direction always reflects actual key state,
+    // even after reconciliation overwrites it during replay
+    auto* player = world_.get_component<Player>(local_player_);
+    if (player) {
+        const bool* keys = SDL_GetKeyboardState(nullptr);
+
+        // Vertical movement
+        bool up = keys[SDL_SCANCODE_W] || keys[SDL_SCANCODE_UP];
+        bool down = keys[SDL_SCANCODE_S] || keys[SDL_SCANCODE_DOWN];
+        if (up && !down) {
+            player->input_direction.y = -1;
+        } else if (down && !up) {
+            player->input_direction.y = 1;
+        } else {
+            player->input_direction.y = 0;
+        }
+
+        // Horizontal movement
+        bool left = keys[SDL_SCANCODE_A] || keys[SDL_SCANCODE_LEFT];
+        bool right = keys[SDL_SCANCODE_D] || keys[SDL_SCANCODE_RIGHT];
+        if (left && !right) {
+            player->input_direction.x = -1;
+        } else if (right && !left) {
+            player->input_direction.x = 1;
+        } else {
+            player->input_direction.x = 0;
         }
     }
 }
