@@ -99,14 +99,19 @@ void PredictionSystem::reconcile(u32 server_tick, const EntityState& server_stat
         transform->position.y - position_error_.y
     };
 
-    // Reset to authoritative server state (ALL of it, including input_direction)
-    // This ensures resimulation starts from the exact same state as the server
+    // Reset to authoritative server state for movement/position
+    // Note: We do NOT reset input_direction from server state!
+    // The client's local input is always authoritative - the server just echoes
+    // back what it received. If we overwrite local input with server's echo,
+    // it creates a feedback loop when there's latency or timing issues.
+    Vec2i local_input = player->input_direction;  // Preserve local input
+
     transform->position = server_state.position;
     transform->velocity = server_state.velocity;
     player->grid_pos = server_state.grid_pos;
     player->move_target = server_state.move_target;
     player->is_moving = server_state.is_moving;
-    player->input_direction = server_state.input_direction;
+    player->input_direction = local_input;  // Keep local input, not server echo
     player->queued_direction = {0, 0};
 
     // Get inputs that haven't been processed by the server yet

@@ -98,16 +98,38 @@ void Server::run() {
     auto last_time = std::chrono::high_resolution_clock::now();
     constexpr f32 fixed_dt = net::TICK_INTERVAL;
     f32 accumulator = 0.0f;
+#ifdef ENABLE_PROFILING
+    u32 frames_without_tick = 0;
+#endif
 
     while (running_) {
         auto current_time = std::chrono::high_resolution_clock::now();
         f32 dt = std::chrono::duration<f32>(current_time - last_time).count();
         last_time = current_time;
 
-        // Cap delta time
+        // Cap delta time (also handle clock going backwards, e.g., NTP/WSL2)
+        if (dt < 0.0f) {
+            std::cerr << "[WARNING] Clock went backwards by " << (-dt * 1000.0f)
+                      << "ms, using nominal tick interval\n";
+            // Use one tick's worth of time to keep simulation responsive
+            dt = fixed_dt;
+        }
         if (dt > 0.25f) dt = 0.25f;
 
         accumulator += dt;
+
+#ifdef ENABLE_PROFILING
+        // Track if we're stalling (many frames without simulation)
+        if (accumulator < fixed_dt) {
+            frames_without_tick++;
+            if (frames_without_tick > 100) {
+                // Something is very wrong - log it
+                std::cerr << "[PROFILER] " << frames_without_tick
+                          << " frames without tick! dt=" << (dt * 1000.0f)
+                          << "ms, accumulator=" << (accumulator * 1000.0f) << "ms\n";
+            }
+        }
+#endif
 
 #ifdef ENABLE_PROFILING
         // Accumulate network time (measured between simulation ticks)
@@ -120,32 +142,59 @@ void Server::run() {
 #endif
 
         // Fixed timestep for simulation
-        while (accumulator >= fixed_dt) {
+        // Limit ticks per frame to prevent spiral of death (max 15 = 250ms worth)
+        int ticks_this_frame = 0;
+        constexpr int MAX_TICKS_PER_FRAME = 15;
+
+        while (accumulator >= fixed_dt && ticks_this_frame < MAX_TICKS_PER_FRAME) {
 #ifdef ENABLE_PROFILING
+            frames_without_tick = 0;  // Reset stall counter
             // Start tick timing only when simulation actually runs
             profiler_.begin_tick(current_tick_);
 #endif
             update(fixed_dt);
             ++current_tick_;
+            ++ticks_this_frame;
             accumulator -= fixed_dt;
 
 #ifdef ENABLE_PROFILING
             profiler_.begin_phase(TickPhase::BroadcastState);
+            profiler_.begin_scope("broadcast_state");
 #endif
             // Broadcast state after each tick
             broadcast_state();
 #ifdef ENABLE_PROFILING
+            profiler_.end_scope("broadcast_state");
             profiler_.end_phase();
             profiler_.end_tick();
 #endif
         }
 
+        // If we hit the tick limit, drop excess time to prevent death spiral
+        if (ticks_this_frame >= MAX_TICKS_PER_FRAME && accumulator > fixed_dt) {
+            std::cerr << "[WARNING] Dropping " << (accumulator * 1000.0f)
+                      << "ms of accumulated time (tick limit reached)\n";
+            accumulator = 0.0f;
+        }
+
+        // Sanity check: accumulator should never be negative
+        if (accumulator < 0.0f) {
+            std::cerr << "[BUG] Negative accumulator detected: " << (accumulator * 1000.0f)
+                      << "ms! This should never happen. Resetting.\n";
+            accumulator = 0.0f;
+        }
+
 #ifdef ENABLE_PROFILING
         // Update profiler window
-        if (profiler_window_ && !profiler_window_->update()) {
-            // Window was closed - shut down server
-            profiler_window_.reset();
-            running_ = false;
+        if (profiler_window_) {
+            profiler_.begin_scope("profiler_window");
+            bool open = profiler_window_->update();
+            profiler_.end_scope("profiler_window");
+            if (!open) {
+                // Window was closed - shut down server
+                profiler_window_.reset();
+                running_ = false;
+            }
         }
 #endif
 
@@ -166,25 +215,31 @@ void Server::run() {
 void Server::update(f32 dt) {
 #ifdef ENABLE_PROFILING
     profiler_.begin_phase(TickPhase::InputProcessing);
+    profiler_.begin_scope("input_processor");
 #endif
     // Process queued inputs
     input_processor_->update(world_, dt);
 #ifdef ENABLE_PROFILING
+    profiler_.end_scope("input_processor");
     profiler_.end_phase();
 
     profiler_.begin_phase(TickPhase::WorldUpdate);
     profiler_.set_entity_count(static_cast<u32>(world_.entity_count()));
+    profiler_.begin_scope("world_update");
 #endif
     // Update game systems
     world_.update(dt);
 #ifdef ENABLE_PROFILING
+    profiler_.end_scope("world_update");
     profiler_.end_phase();
 
     profiler_.begin_phase(TickPhase::RoundManager);
+    profiler_.begin_scope("round_manager");
 #endif
     // Update round state
     round_manager_->update(dt);
 #ifdef ENABLE_PROFILING
+    profiler_.end_scope("round_manager");
     profiler_.end_phase();
 #endif
 }

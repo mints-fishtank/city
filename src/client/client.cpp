@@ -109,6 +109,13 @@ void Client::run() {
         f32 dt = std::chrono::duration<f32>(current_time - last_time).count();
         last_time = current_time;
 
+        // Handle clock going backwards (WSL2/NTP can cause this)
+        if (dt < 0.0f) {
+            std::cerr << "[WARNING] Client clock went backwards by " << (-dt * 1000.0f)
+                      << "ms, using nominal tick interval\n";
+            dt = net::TICK_INTERVAL;
+        }
+
         // Cap delta time to avoid spiral of death
         if (dt > 0.25f) dt = 0.25f;
 
@@ -117,11 +124,30 @@ void Client::run() {
         if (!running_) break;
 
         // Fixed timestep for game logic
+        // Limit ticks per frame to prevent spiral of death (max 15 = 250ms worth)
         tick_accumulator_ += dt;
-        while (tick_accumulator_ >= fixed_dt) {
+        int ticks_this_frame = 0;
+        constexpr int MAX_TICKS_PER_FRAME = 15;
+
+        while (tick_accumulator_ >= fixed_dt && ticks_this_frame < MAX_TICKS_PER_FRAME) {
             update(fixed_dt);
             tick_accumulator_ -= fixed_dt;
             ++current_tick_;
+            ++ticks_this_frame;
+        }
+
+        // If we hit the tick limit, drop excess time to prevent death spiral
+        if (ticks_this_frame >= MAX_TICKS_PER_FRAME && tick_accumulator_ > fixed_dt) {
+            std::cerr << "[WARNING] Client dropping " << (tick_accumulator_ * 1000.0f)
+                      << "ms of accumulated time (tick limit reached)\n";
+            tick_accumulator_ = 0.0f;
+        }
+
+        // Sanity check: accumulator should never be negative
+        if (tick_accumulator_ < 0.0f) {
+            std::cerr << "[BUG] Client negative accumulator: " << (tick_accumulator_ * 1000.0f)
+                      << "ms! Resetting.\n";
+            tick_accumulator_ = 0.0f;
         }
 
         process_network();
