@@ -162,6 +162,7 @@ void ProfilerWindow::render() {
 
     render_tick_overview();
     render_phase_breakdown();
+    render_phase_timeline();
     render_tick_graph();
     render_spike_list();
     render_scope_timing();
@@ -270,6 +271,134 @@ void ProfilerWindow::render_phase_breakdown() {
         }
     }
     ImGui::Columns(1);
+
+    ImGui::Spacing();
+}
+
+void ProfilerWindow::render_phase_timeline() {
+    if (!ImGui::CollapsingHeader("Phase Timeline (Stacked)", ImGuiTreeNodeFlags_DefaultOpen)) {
+        return;
+    }
+
+    const auto& history = profiler_->history();
+    size_t count = std::min(static_cast<size_t>(graph_time_range_), history.size());
+
+    if (count == 0) {
+        ImGui::Text("No data yet...");
+        ImGui::Spacing();
+        return;
+    }
+
+    // Time range selector (shared with tick graph)
+    ImGui::Text("Time range:");
+    ImGui::SameLine();
+    if (ImGui::Button("1s##timeline")) graph_time_range_ = 60;
+    ImGui::SameLine();
+    if (ImGui::Button("5s##timeline")) graph_time_range_ = 300;
+    ImGui::SameLine();
+    if (ImGui::Button("10s##timeline")) graph_time_range_ = 600;
+
+    // Graph dimensions
+    float graph_width = ImGui::GetContentRegionAvail().x;
+    float graph_height = 180;
+    ImVec2 graph_pos = ImGui::GetCursorScreenPos();
+
+    // Reserve space for the graph
+    ImGui::Dummy(ImVec2(graph_width, graph_height));
+
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+    // Background
+    draw_list->AddRectFilled(
+        graph_pos,
+        ImVec2(graph_pos.x + graph_width, graph_pos.y + graph_height),
+        IM_COL32(40, 40, 40, 255));
+
+    // Calculate max time for scaling (auto-scale to actual data)
+    float max_time_ms = 0.0f;
+    for (size_t i = 0; i < count; ++i) {
+        float total = static_cast<float>(history[history.size() - count + i].total_time_ms());
+        if (total > max_time_ms) max_time_ms = total;
+    }
+    // Ensure minimum scale and round up nicely
+    max_time_ms = std::max(max_time_ms * 1.2f, 0.1f);  // Add 20% headroom, minimum 0.1ms
+    // Round to nice values
+    if (max_time_ms < 1.0f) max_time_ms = std::ceil(max_time_ms * 10.0f) / 10.0f;
+    else if (max_time_ms < 10.0f) max_time_ms = std::ceil(max_time_ms);
+    else max_time_ms = std::ceil(max_time_ms / 5.0f) * 5.0f;
+
+    // Draw stacked bars for each tick
+    float bar_width = graph_width / static_cast<float>(count);
+
+    for (size_t i = 0; i < count; ++i) {
+        const auto& tick = history[history.size() - count + i];
+        float x = graph_pos.x + static_cast<float>(i) * bar_width;
+        float y_bottom = graph_pos.y + graph_height;
+        float y_accumulated = 0.0f;
+
+        // Draw each phase stacked from bottom to top
+        for (size_t p = 0; p < TICK_PHASE_COUNT; ++p) {
+            float phase_ms = static_cast<float>(tick.phase_times_us[p] / 1000.0);
+            float phase_height = (phase_ms / max_time_ms) * graph_height;
+
+            if (phase_height > 0.5f) {  // Only draw if visible
+                draw_list->AddRectFilled(
+                    ImVec2(x, y_bottom - y_accumulated - phase_height),
+                    ImVec2(x + bar_width - 1, y_bottom - y_accumulated),
+                    ImGui::ColorConvertFloat4ToU32(PHASE_COLORS[p]));
+            }
+
+            y_accumulated += phase_height;
+        }
+    }
+
+    // Draw budget line (only if visible in current scale)
+    if (max_time_ms >= TickProfiler::TARGET_TICK_TIME_MS * 0.5f) {
+        float budget_y = graph_pos.y + graph_height - (TickProfiler::TARGET_TICK_TIME_MS / max_time_ms) * graph_height;
+        budget_y = std::max(budget_y, graph_pos.y);  // Clamp to graph area
+        draw_list->AddLine(
+            ImVec2(graph_pos.x, budget_y),
+            ImVec2(graph_pos.x + graph_width, budget_y),
+            IM_COL32(255, 100, 100, 200), 2.0f);
+
+        // Budget label
+        char budget_label[32];
+        snprintf(budget_label, sizeof(budget_label), "%.1fms budget", TickProfiler::TARGET_TICK_TIME_MS);
+        draw_list->AddText(
+            ImVec2(graph_pos.x + graph_width - 90, budget_y + 2),
+            IM_COL32(255, 100, 100, 255),
+            budget_label);
+    }
+
+    // Y-axis labels (0ms at bottom, max at top)
+    char max_label[32];
+    if (max_time_ms < 1.0f) {
+        snprintf(max_label, sizeof(max_label), "%.2fms", max_time_ms);
+    } else {
+        snprintf(max_label, sizeof(max_label), "%.1fms", max_time_ms);
+    }
+    draw_list->AddText(
+        ImVec2(graph_pos.x + 5, graph_pos.y + 2),
+        IM_COL32(200, 200, 200, 255),
+        max_label);
+
+    draw_list->AddText(
+        ImVec2(graph_pos.x + 5, graph_pos.y + graph_height - 15),
+        IM_COL32(200, 200, 200, 255),
+        "0ms");
+
+    // Legend
+    ImGui::Spacing();
+    for (size_t i = 0; i < TICK_PHASE_COUNT; ++i) {
+        ImGui::ColorButton("##color", PHASE_COLORS[i], ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoBorder, ImVec2(12, 12));
+        ImGui::SameLine();
+        ImGui::Text("%s", PHASE_NAMES[i]);
+        if (i < TICK_PHASE_COUNT - 1) {
+            ImGui::SameLine();
+            ImGui::Text("  |  ");
+            ImGui::SameLine();
+        }
+    }
 
     ImGui::Spacing();
 }

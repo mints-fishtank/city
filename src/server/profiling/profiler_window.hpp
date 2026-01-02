@@ -29,6 +29,7 @@ private:
     void render();
     void render_tick_overview();
     void render_phase_breakdown();
+    void render_phase_timeline();  // Stacked area graph of phases over time
     void render_tick_graph();
     void render_spike_list();
     void render_scope_timing();
