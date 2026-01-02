@@ -320,31 +320,61 @@ void ProfilerWindow::render_phase_timeline() {
         float total = static_cast<float>(history[history.size() - count + i].total_time_ms());
         if (total > max_time_ms) max_time_ms = total;
     }
-    // Ensure minimum scale and round up nicely
-    max_time_ms = std::max(max_time_ms * 1.2f, 0.1f);  // Add 20% headroom, minimum 0.1ms
-    // Round to nice values
-    if (max_time_ms < 1.0f) max_time_ms = std::ceil(max_time_ms * 10.0f) / 10.0f;
+    // Add 20% headroom, with small minimum to avoid division issues
+    max_time_ms = std::max(max_time_ms * 1.2f, 0.001f);
+    // Round to nice values for readability
+    if (max_time_ms < 0.1f) max_time_ms = std::ceil(max_time_ms * 100.0f) / 100.0f;
+    else if (max_time_ms < 1.0f) max_time_ms = std::ceil(max_time_ms * 10.0f) / 10.0f;
     else if (max_time_ms < 10.0f) max_time_ms = std::ceil(max_time_ms);
     else max_time_ms = std::ceil(max_time_ms / 5.0f) * 5.0f;
 
-    // Draw stacked bars for each tick
+    // Calculate how many ticks to aggregate per bar (for smoother rendering when zoomed out)
+    float min_bar_width = 2.0f;  // Minimum pixels per bar
+    size_t ticks_per_bar = 1;
     float bar_width = graph_width / static_cast<float>(count);
+    if (bar_width < min_bar_width) {
+        ticks_per_bar = static_cast<size_t>(std::ceil(min_bar_width / bar_width));
+        bar_width = graph_width / std::ceil(static_cast<float>(count) / static_cast<float>(ticks_per_bar));
+    }
 
-    for (size_t i = 0; i < count; ++i) {
-        const auto& tick = history[history.size() - count + i];
-        float x = graph_pos.x + static_cast<float>(i) * bar_width;
+    size_t num_bars = (count + ticks_per_bar - 1) / ticks_per_bar;
+
+    // Calculate proportional gap between bars (10% of bar width, clamped to 1-3 pixels)
+    float bar_gap = std::clamp(bar_width * 0.1f, 1.0f, 3.0f);
+    float bar_inner_width = bar_width - bar_gap;
+
+    for (size_t bar = 0; bar < num_bars; ++bar) {
+        // Aggregate ticks for this bar
+        std::array<f64, TICK_PHASE_COUNT> aggregated_phases{};
+        size_t start_idx = bar * ticks_per_bar;
+        size_t end_idx = std::min(start_idx + ticks_per_bar, count);
+        size_t ticks_in_bar = end_idx - start_idx;
+
+        for (size_t i = start_idx; i < end_idx; ++i) {
+            const auto& tick = history[history.size() - count + i];
+            for (size_t p = 0; p < TICK_PHASE_COUNT; ++p) {
+                aggregated_phases[p] += tick.phase_times_us[p];
+            }
+        }
+
+        // Average the aggregated times
+        for (size_t p = 0; p < TICK_PHASE_COUNT; ++p) {
+            aggregated_phases[p] /= static_cast<f64>(ticks_in_bar);
+        }
+
+        float x = graph_pos.x + static_cast<float>(bar) * bar_width;
         float y_bottom = graph_pos.y + graph_height;
         float y_accumulated = 0.0f;
 
         // Draw each phase stacked from bottom to top
         for (size_t p = 0; p < TICK_PHASE_COUNT; ++p) {
-            float phase_ms = static_cast<float>(tick.phase_times_us[p] / 1000.0);
+            float phase_ms = static_cast<float>(aggregated_phases[p] / 1000.0);
             float phase_height = (phase_ms / max_time_ms) * graph_height;
 
             if (phase_height > 0.5f) {  // Only draw if visible
                 draw_list->AddRectFilled(
                     ImVec2(x, y_bottom - y_accumulated - phase_height),
-                    ImVec2(x + bar_width - 1, y_bottom - y_accumulated),
+                    ImVec2(x + bar_inner_width, y_bottom - y_accumulated),
                     ImGui::ColorConvertFloat4ToU32(PHASE_COLORS[p]));
             }
 

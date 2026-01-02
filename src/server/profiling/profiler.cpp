@@ -10,6 +10,13 @@ namespace city {
 void TickProfiler::begin_tick(u32 tick_number) {
     current_tick_ = TickProfile{};
     current_tick_.tick_number = tick_number;
+
+    // Transfer accumulated phase times (e.g., network time since last tick)
+    for (size_t i = 0; i < TICK_PHASE_COUNT; ++i) {
+        current_tick_.phase_times_us[i] = accumulated_phase_times_us_[i];
+        accumulated_phase_times_us_[i] = 0.0;
+    }
+
     tick_start_ = Clock::now();
     in_tick_ = true;
 }
@@ -17,8 +24,12 @@ void TickProfiler::begin_tick(u32 tick_number) {
 void TickProfiler::end_tick() {
     if (!in_tick_) return;
 
-    auto end_time = Clock::now();
-    current_tick_.total_time_us = std::chrono::duration<f64, std::micro>(end_time - tick_start_).count();
+    // Calculate total time as sum of all phase times
+    // This includes accumulated network time from before begin_tick
+    current_tick_.total_time_us = 0.0;
+    for (size_t i = 0; i < TICK_PHASE_COUNT; ++i) {
+        current_tick_.total_time_us += current_tick_.phase_times_us[i];
+    }
 
     // Update memory usage
     update_memory_usage();
@@ -62,7 +73,15 @@ void TickProfiler::end_phase() {
 
     auto end_time = Clock::now();
     f64 duration_us = std::chrono::duration<f64, std::micro>(end_time - phase_start_).count();
-    current_tick_.phase_times_us[static_cast<size_t>(current_phase_)] += duration_us;
+
+    if (in_tick_) {
+        // Add to current tick
+        current_tick_.phase_times_us[static_cast<size_t>(current_phase_)] += duration_us;
+    } else {
+        // Accumulate for next tick (e.g., network time between simulation ticks)
+        accumulated_phase_times_us_[static_cast<size_t>(current_phase_)] += duration_us;
+    }
+
     in_phase_ = false;
 }
 

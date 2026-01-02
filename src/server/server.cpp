@@ -110,6 +110,7 @@ void Server::run() {
         accumulator += dt;
 
 #ifdef ENABLE_PROFILING
+        // Accumulate network time (measured between simulation ticks)
         profiler_.begin_phase(TickPhase::Network);
 #endif
         // Process network at frame rate
@@ -121,6 +122,7 @@ void Server::run() {
         // Fixed timestep for simulation
         while (accumulator >= fixed_dt) {
 #ifdef ENABLE_PROFILING
+            // Start tick timing only when simulation actually runs
             profiler_.begin_tick(current_tick_);
 #endif
             update(fixed_dt);
@@ -141,8 +143,9 @@ void Server::run() {
 #ifdef ENABLE_PROFILING
         // Update profiler window
         if (profiler_window_ && !profiler_window_->update()) {
-            // Window was closed
+            // Window was closed - shut down server
             profiler_window_.reset();
+            running_ = false;
         }
 #endif
 

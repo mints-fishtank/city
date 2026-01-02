@@ -182,6 +182,9 @@ private:
     bool in_tick_{false};
     bool in_phase_{false};
 
+    // Accumulated phase times between ticks (e.g., network time)
+    std::array<f64, TICK_PHASE_COUNT> accumulated_phase_times_us_{};
+
     // Scope tracking for detailed profiling
     struct ScopeEntry {
         TimePoint start;
