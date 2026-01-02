@@ -86,6 +86,7 @@ private:
     // Timing
     u32 current_tick_{0};
     f32 tick_accumulator_{0.0f};
+    bool tick_synced_{false};  // True once we've synced with server tick
 
     // Networking state
     u32 session_id_{0};

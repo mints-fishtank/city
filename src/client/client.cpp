@@ -441,6 +441,16 @@ void Client::handle_delta_state(const net::Message& msg) {
     u32 tick = reader.read_u32();
     last_server_tick_ = tick;
 
+    // Sync client tick with server tick on first update
+    // Client runs slightly ahead of server to give inputs time to arrive
+    // before the server computes the next state
+    if (!tick_synced_) {
+        // Run 3 ticks ahead (~50ms buffer at 60Hz) to account for network latency
+        current_tick_ = tick + 3;
+        prediction_->clear_inputs();  // Clear old inputs with wrong tick numbering
+        tick_synced_ = true;
+    }
+
     u32 count = reader.read_u32();
 
     // Collect states for reconciliation
@@ -455,10 +465,12 @@ void Client::handle_delta_state(const net::Message& msg) {
         bool is_moving = false;
         Vec2i grid_pos{0, 0};
         Vec2i move_target{0, 0};
+        Vec2i input_direction{0, 0};
         if (has_player) {
             is_moving = reader.read_bool();
             grid_pos = reader.read_vec2i();
             move_target = reader.read_vec2i();
+            input_direction = reader.read_vec2i();
         }
 
         // Collect state for local player reconciliation
@@ -469,6 +481,7 @@ void Client::handle_delta_state(const net::Message& msg) {
                 .velocity = velocity,
                 .grid_pos = grid_pos,
                 .move_target = move_target,
+                .input_direction = input_direction,
                 .is_moving = is_moving
             });
             continue;
