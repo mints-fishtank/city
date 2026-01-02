@@ -65,9 +65,9 @@ private:
     // Fixed timestep for resimulation (must match server tick rate)
     f32 tick_dt_{1.0f / 60.0f};
 
-    // Smooth visual correction (blends out misprediction over a few frames)
+    // Smooth visual correction (blends out misprediction quickly)
     Vec2f position_error_{0.0f, 0.0f};
-    static constexpr f32 ERROR_BLEND_RATE = 20.0f;
+    static constexpr f32 ERROR_BLEND_RATE = 20.0f;  // Fast correction to avoid lingering jitter
 
     // Estimated round-trip latency in ticks (used for input acknowledgment)
     // Conservative estimate: 100ms = ~6 ticks at 60Hz

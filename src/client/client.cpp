@@ -57,7 +57,7 @@ void Client::start_local_server() {
         return;
     }
 
-    if (!local_server_->start(net::DEFAULT_PORT)) {
+    if (!local_server_->start(net::DEFAULT_PORT, true /* embedded */)) {
         std::cerr << "Failed to start local server\n";
         return;
     }

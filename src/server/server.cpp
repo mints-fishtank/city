@@ -56,7 +56,7 @@ bool Server::init() {
     return true;
 }
 
-bool Server::start(u16 port) {
+bool Server::start(u16 port, bool embedded) {
     if (!connection_->start(port)) {
         return false;
     }
@@ -65,8 +65,11 @@ bool Server::start(u16 port) {
     std::cout << "Server started on port " << port << "\n";
 
 #ifdef ENABLE_PROFILING
-    // Initialize profiler window by default
-    set_profiler_window_enabled(true);
+    // Initialize profiler window by default, but not when running embedded
+    // (embedded servers run on a separate thread where SDL GUI isn't allowed)
+    if (!embedded) {
+        set_profiler_window_enabled(true);
+    }
 #endif
 
     return true;

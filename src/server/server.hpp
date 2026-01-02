@@ -33,7 +33,8 @@ public:
     bool init();
 
     // Start listening on port
-    bool start(u16 port);
+    // Set embedded=true when running as a local server inside another process (disables GUI)
+    bool start(u16 port, bool embedded = false);
 
     // Stop the server
     void stop();

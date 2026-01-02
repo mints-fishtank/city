@@ -112,7 +112,7 @@ void PredictionSystem::reconcile(u32 server_tick, const EntityState& server_stat
     player->move_target = server_state.move_target;
     player->is_moving = server_state.is_moving;
     player->input_direction = local_input;  // Keep local input, not server echo
-    player->queued_direction = {0, 0};
+    player->queued_direction = {0, 0};  // Clear queue - replay will reconstruct it
 
     // Get inputs that haven't been processed by the server yet
     // Server state at tick T includes effects of inputs up to tick T
@@ -129,7 +129,7 @@ void PredictionSystem::reconcile(u32 server_tick, const EntityState& server_stat
     f32 error_sq = dx * dx + dy * dy;
 
     // Always update position_error_ to the new error (or zero if tiny/huge)
-    constexpr f32 MIN_ERROR_SQ = 0.01f;      // Below 0.1 units, just snap (reduces jitter)
+    constexpr f32 MIN_ERROR_SQ = 0.09f;      // Below 0.3 units, just snap (reduces jitter)
     constexpr f32 MAX_ERROR_SQ = 4.0f;       // Above 2 units, just snap (teleport)
 
     if (error_sq > MIN_ERROR_SQ && error_sq < MAX_ERROR_SQ) {
