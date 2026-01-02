@@ -32,6 +32,8 @@ void EntitySync::broadcast(ServerConnection& connection, u32 tick) {
         s.write_bool(player != nullptr);
         if (player) {
             s.write_bool(player->is_moving);
+            s.write_vec2i(player->grid_pos);
+            s.write_vec2i(player->move_target);
         }
     });
 

@@ -72,27 +72,30 @@ void PredictionSystem::reconcile([[maybe_unused]] u32 server_tick, const EntityS
     auto* player = world_.get_component<Player>(player_entity);
     if (!transform || !player) return;
 
-    // For grid-based movement: don't reconcile mid-move to avoid jitter
-    // The client and server may be at slightly different progress through the same move
-    // Only reconcile when stationary to check we're on the correct tile
-    if (player->is_moving) {
-        return;
-    }
+    // Use server's actual grid state for accurate comparison
+    Vec2i server_grid_pos = authoritative_state.grid_pos;
+    Vec2i server_move_target = authoritative_state.move_target;
+    bool server_is_moving = authoritative_state.is_moving;
 
-    // Calculate which tile the server thinks we're on
-    Vec2i server_tile{
-        static_cast<i32>(authoritative_state.position.x),
-        static_cast<i32>(authoritative_state.position.y)
-    };
+    // Determine the tile the server will end up at
+    Vec2i server_destination = server_is_moving ? server_move_target : server_grid_pos;
 
-    // Only reconcile if we're on the wrong tile
-    if (player->grid_pos.x != server_tile.x || player->grid_pos.y != server_tile.y) {
-        // We're on the wrong tile - snap to server position
-        player->grid_pos = server_tile;
-        player->move_target = server_tile;
+    // Determine the tile the client will end up at
+    Vec2i client_destination = player->is_moving ? player->move_target : player->grid_pos;
+
+    // Only reconcile if we disagree on the destination tile
+    // This allows client to be ahead of server (finished move that server is still doing)
+    if (client_destination.x != server_destination.x || client_destination.y != server_destination.y) {
+        // We're heading to the wrong tile - snap to server state
+        player->grid_pos = server_grid_pos;
+        player->move_target = server_move_target;
+        player->is_moving = server_is_moving;
         player->move_progress = 0.0f;
         transform->position = authoritative_state.position;
         transform->velocity = authoritative_state.velocity;
+
+        // Clear queued direction to prevent unintended movement after reconciliation
+        player->queued_direction = {0, 0};
     }
 }
 

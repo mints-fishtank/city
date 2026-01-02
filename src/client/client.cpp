@@ -455,8 +455,12 @@ void Client::handle_delta_state(const net::Message& msg) {
         Vec2f velocity = reader.read_vec2f();
         bool has_player = reader.read_bool();
         bool is_moving = false;
+        Vec2i grid_pos{0, 0};
+        Vec2i move_target{0, 0};
         if (has_player) {
             is_moving = reader.read_bool();
+            grid_pos = reader.read_vec2i();
+            move_target = reader.read_vec2i();
         }
 
         // Collect state for local player reconciliation
@@ -464,7 +468,10 @@ void Client::handle_delta_state(const net::Message& msg) {
             server_states.push_back(EntityState{
                 .net_id = net_id,
                 .position = position,
-                .velocity = velocity
+                .velocity = velocity,
+                .grid_pos = grid_pos,
+                .move_target = move_target,
+                .is_moving = is_moving
             });
             continue;
         }

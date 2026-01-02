@@ -16,6 +16,9 @@ struct EntityState {
     NetEntityId net_id;
     Vec2f position;
     Vec2f velocity;
+    Vec2i grid_pos;
+    Vec2i move_target;
+    bool is_moving;
 };
 
 // Client-side prediction system

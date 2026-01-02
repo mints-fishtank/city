@@ -7,17 +7,17 @@ namespace city {
 InputProcessor::InputProcessor([[maybe_unused]] World& world, TileMap& tilemap)
     : tilemap_(tilemap) {}
 
-void InputProcessor::queue_input(NetEntityId entity, const net::PlayerInputPayload& input) {
-    input_queues_[entity].push(input);
+void InputProcessor::set_input(NetEntityId entity, const net::PlayerInputPayload& input) {
+    latest_inputs_[entity] = input;
 }
 
 void InputProcessor::update(World& world, f32 dt) {
-    // Process one input per entity per tick
-    for (auto& [net_id, queue] : input_queues_) {
-        if (queue.empty()) continue;
+    // Process the latest input for each entity (discard stale inputs)
+    for (auto& [net_id, input_opt] : latest_inputs_) {
+        if (!input_opt) continue;
 
-        auto input = queue.front();
-        queue.pop();
+        auto input = *input_opt;
+        input_opt = std::nullopt;  // Clear after processing
 
         Entity entity = world.get_by_net_id(net_id);
         if (!entity.is_valid()) continue;

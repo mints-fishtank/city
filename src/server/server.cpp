@@ -215,7 +215,7 @@ void Server::on_client_message(ClientSession& session, const net::Message& msg) 
             net::PlayerInputPayload input;
             auto reader = msg.reader();
             input.deserialize(reader);
-            input_processor_->queue_input(session.player_entity(), input);
+            input_processor_->set_input(session.player_entity(), input);
             break;
         }
 
