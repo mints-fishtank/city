@@ -1,7 +1,6 @@
-# Server executable
+# Server library (shared between standalone server and client's embedded server)
 
-add_executable(city_server
-    main.cpp
+add_library(city_server_lib STATIC
     server.cpp
 
     # Simulation
@@ -18,16 +17,22 @@ add_executable(city_server
     systems/entity_sync.cpp
 )
 
-target_include_directories(city_server PRIVATE
+target_include_directories(city_server_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 
-target_link_libraries(city_server PRIVATE
+target_link_libraries(city_server_lib PUBLIC
     city_core
     enet
 )
 
 # Platform-specific settings
 if(UNIX AND NOT APPLE)
-    target_link_libraries(city_server PRIVATE pthread)
+    target_link_libraries(city_server_lib PUBLIC pthread)
 endif()
+
+# Server executable
+add_executable(city_server main.cpp)
+
+target_link_libraries(city_server PRIVATE city_server_lib)

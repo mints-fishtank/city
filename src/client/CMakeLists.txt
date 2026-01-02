@@ -29,6 +29,7 @@ target_include_directories(city_client PRIVATE
 
 target_link_libraries(city_client PRIVATE
     city_core
+    city_server_lib
     SDL3::SDL3
     enet
     stb

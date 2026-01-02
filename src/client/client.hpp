@@ -6,6 +6,7 @@
 #include "core/net/message.hpp"
 #include <memory>
 #include <string>
+#include <thread>
 
 namespace city {
 
@@ -16,6 +17,7 @@ class PredictionSystem;
 class InterpolationSystem;
 class ClientConnection;
 class ContentDownloader;
+class Server;
 
 // Client state
 enum class ClientState {
@@ -57,10 +59,16 @@ private:
     void render();
     void handle_events();
     void process_network();
-    void create_test_world();
+    void start_local_server();
+    void stop_local_server();
 
     ClientState state_{ClientState::Disconnected};
     bool running_{false};
+
+    // Local server (when running standalone)
+    std::unique_ptr<Server> local_server_;
+    std::unique_ptr<std::thread> server_thread_;
+    bool using_local_server_{false};
 
     // Game world
     World world_;

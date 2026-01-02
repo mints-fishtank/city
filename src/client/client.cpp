@@ -7,6 +7,7 @@
 #include "net/content_downloader.hpp"
 #include "core/game/components/transform.hpp"
 #include "core/game/components/player.hpp"
+#include "server/server.hpp"
 
 #include <SDL3/SDL.h>
 #include <iostream>
@@ -16,7 +17,9 @@
 namespace city {
 
 Client::Client() = default;
+
 Client::~Client() {
+    stop_local_server();
     SDL_Quit();
 }
 
@@ -45,80 +48,57 @@ bool Client::init() {
     return true;
 }
 
-void Client::create_test_world() {
-    // Create a simple 64x64 test map
-    tilemap_.set_bounds(64, 64);
+void Client::start_local_server() {
+    std::cout << "Starting local server...\n";
 
-    Tile floor_tile;
-    floor_tile.floor_id = 1;
-    floor_tile.flags = TileFlags::None;
-
-    Tile wall_tile;
-    wall_tile.floor_id = 1;
-    wall_tile.wall_id = 1;
-    wall_tile.flags = TileFlags::Solid | TileFlags::Opaque;
-
-    // Fill map with floor and border walls
-    for (i32 y = 0; y < 64; ++y) {
-        for (i32 x = 0; x < 64; ++x) {
-            if (x == 0 || x == 63 || y == 0 || y == 63) {
-                tilemap_.set_tile({x, y}, wall_tile);
-            } else {
-                tilemap_.set_tile({x, y}, floor_tile);
-            }
-        }
+    local_server_ = std::make_unique<Server>();
+    if (!local_server_->init()) {
+        std::cerr << "Failed to initialize local server\n";
+        return;
     }
 
-    // Add some interior walls to make it interesting
-    for (i32 i = 10; i < 30; ++i) {
-        tilemap_.set_tile({20, i}, wall_tile);
-        tilemap_.set_tile({40, 64 - i}, wall_tile);
+    if (!local_server_->start(net::DEFAULT_PORT)) {
+        std::cerr << "Failed to start local server\n";
+        return;
     }
 
-    // Create local player
-    Vec2i spawn_tile{32, 32};
-    Vec2f spawn_pos{
-        static_cast<f32>(spawn_tile.x) + 0.5f,
-        static_cast<f32>(spawn_tile.y) + 0.5f
-    };
-
-    local_player_ = world_.create();
-    world_.add_component<Transform>(local_player_, Transform{
-        .position = spawn_pos,
-        .velocity = {0.0f, 0.0f},
-        .rotation = 0.0f
-    });
-    world_.add_component<Player>(local_player_, Player{
-        .name = "LocalPlayer",
-        .session_id = 0,
-        .team = 0,
-        .is_local = true,
-        .grid_pos = spawn_tile,
-        .move_target = spawn_tile,
-        .move_progress = 0.0f,
-        .is_moving = false
+    // Run server on separate thread
+    server_thread_ = std::make_unique<std::thread>([this]() {
+        local_server_->run();
     });
 
-    // Set up prediction for local testing
-    NetEntityId local_net_id = world_.allocate_net_id();
-    world_.assign_net_id(local_player_, local_net_id);
-    prediction_->set_local_player(local_net_id);
+    using_local_server_ = true;
 
-    // Set camera to follow player
-    renderer_->set_camera_position(spawn_pos);
+    // Give the server a moment to start
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    // Set state to playing for local testing
-    state_ = ClientState::Playing;
+    // Connect to local server
+    if (!connect("localhost", net::DEFAULT_PORT)) {
+        std::cerr << "Failed to connect to local server\n";
+        stop_local_server();
+    }
+}
 
-    std::cout << "Test world created (64x64 tiles)\n";
+void Client::stop_local_server() {
+    if (local_server_) {
+        local_server_->stop();
+    }
+
+    if (server_thread_ && server_thread_->joinable()) {
+        server_thread_->join();
+    }
+
+    server_thread_.reset();
+    local_server_.reset();
+    using_local_server_ = false;
 }
 
 void Client::run() {
     running_ = true;
 
-    // If not connecting to server, create standalone test world
+    // If not already connecting to a server, start a local one
     if (state_ == ClientState::Disconnected) {
-        create_test_world();
+        start_local_server();
     }
 
     auto last_time = std::chrono::high_resolution_clock::now();
@@ -149,6 +129,11 @@ void Client::run() {
 
         // Small sleep to avoid spinning
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    // Clean up local server if we started one
+    if (using_local_server_) {
+        stop_local_server();
     }
 }
 
