@@ -364,7 +364,6 @@ void Client::handle_server_hello(const net::Message& msg) {
         .is_local = true,
         .grid_pos = spawn_tile,
         .move_target = spawn_tile,
-        .move_progress = 0.0f,
         .is_moving = false
     });
 
@@ -409,7 +408,6 @@ void Client::handle_entity_spawn(const net::Message& msg) {
             .is_local = false,
             .grid_pos = grid_pos,
             .move_target = grid_pos,
-            .move_progress = 0.0f,
             .is_moving = false
         });
         std::cout << "Player joined: " << spawn.name << "\n";

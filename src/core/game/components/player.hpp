@@ -6,6 +6,12 @@
 
 namespace city {
 
+// Movement mode for player entities
+enum class MovementMode : u8 {
+    GridLocked = 0,  // Tile-to-tile movement with interpolation
+    Free = 1         // Free movement (not grid-locked)
+};
+
 // Player component - marks an entity as a player
 struct Player {
     std::string name;                   // Player display name
@@ -13,26 +19,27 @@ struct Player {
     u8 team{0};                         // Team/faction ID
     bool is_local{false};               // True for the local player on client
 
-    // Grid movement settings
-    static constexpr f32 MOVE_DURATION = 0.15f;  // Seconds to move one tile
+    // Movement settings
+    MovementMode movement_mode{MovementMode::GridLocked};
+    static constexpr f32 MOVE_DURATION = 0.15f;  // Seconds to move one tile (grid mode)
+    static constexpr f32 FREE_MOVE_SPEED = 8.0f; // Tiles per second (free mode)
 
-    // Grid movement state
-    Vec2i grid_pos{0, 0};               // Current tile position
+    // Grid movement state (used when movement_mode == GridLocked)
+    Vec2i grid_pos{0, 0};               // Current tile (derived from position)
     Vec2i move_target{0, 0};            // Target tile when moving
-    f32 move_progress{0.0f};            // 0.0 = at grid_pos, 1.0 = at move_target
     bool is_moving{false};              // True when transitioning between tiles
 
     // Input state
     Vec2i input_direction{0, 0};        // Current movement input (-1, 0, or 1 for each axis)
-    Vec2i queued_direction{0, 0};       // Direction queued during current move
+    Vec2i queued_direction{0, 0};       // Direction queued during current move (grid mode)
 
     void serialize(Serializer& s) const {
         s.write_string(name);
         s.write_u32(session_id);
         s.write_u8(team);
+        s.write_u8(static_cast<u8>(movement_mode));
         s.write_vec2i(grid_pos);
         s.write_vec2i(move_target);
-        s.write_f32(move_progress);
         s.write_bool(is_moving);
     }
 
@@ -40,9 +47,9 @@ struct Player {
         name = d.read_string();
         session_id = d.read_u32();
         team = d.read_u8();
+        movement_mode = static_cast<MovementMode>(d.read_u8());
         grid_pos = d.read_vec2i();
         move_target = d.read_vec2i();
-        move_progress = d.read_f32();
         is_moving = d.read_bool();
     }
 };
