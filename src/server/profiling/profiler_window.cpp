@@ -530,15 +530,17 @@ void ProfilerWindow::render_scope_timing() {
     }
 
     ImGui::BeginChild("scope_list", ImVec2(0, 150), ImGuiChildFlags_Border);
-    ImGui::Columns(4, "scope_columns");
-    ImGui::SetColumnWidth(0, 200);
-    ImGui::SetColumnWidth(1, 100);
-    ImGui::SetColumnWidth(2, 100);
-    ImGui::SetColumnWidth(3, 80);
+    ImGui::Columns(5, "scope_columns");
+    ImGui::SetColumnWidth(0, 180);
+    ImGui::SetColumnWidth(1, 90);
+    ImGui::SetColumnWidth(2, 90);
+    ImGui::SetColumnWidth(3, 90);
+    ImGui::SetColumnWidth(4, 70);
 
     ImGui::Text("Scope"); ImGui::NextColumn();
     ImGui::Text("Total"); ImGui::NextColumn();
-    ImGui::Text("Average"); ImGui::NextColumn();
+    ImGui::Text("Avg"); ImGui::NextColumn();
+    ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "Max"); ImGui::NextColumn();
     ImGui::Text("Calls"); ImGui::NextColumn();
     ImGui::Separator();
 
@@ -546,6 +548,14 @@ void ProfilerWindow::render_scope_timing() {
         ImGui::Text("%s", stat.name.c_str()); ImGui::NextColumn();
         ImGui::Text("%.2fms", stat.total_time_us / 1000.0); ImGui::NextColumn();
         ImGui::Text("%.3fms", stat.average_time_us / 1000.0); ImGui::NextColumn();
+        // Highlight max if it's significantly higher than average (potential spike)
+        bool is_spike = stat.max_time_us > stat.average_time_us * 10.0;
+        if (is_spike) {
+            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "%.2fms", stat.max_time_us / 1000.0);
+        } else {
+            ImGui::Text("%.2fms", stat.max_time_us / 1000.0);
+        }
+        ImGui::NextColumn();
         ImGui::Text("%u", stat.call_count); ImGui::NextColumn();
     }
 

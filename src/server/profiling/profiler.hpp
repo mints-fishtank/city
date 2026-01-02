@@ -160,6 +160,7 @@ public:
         std::string name;
         f64 total_time_us{0.0};
         f64 average_time_us{0.0};
+        f64 max_time_us{0.0};
         u32 call_count{0};
     };
     std::vector<ScopeStats> get_scope_stats() const;
@@ -189,6 +190,7 @@ private:
     struct ScopeEntry {
         TimePoint start;
         f64 accumulated_us{0.0};
+        f64 max_us{0.0};  // Worst case timing
         u32 call_count{0};
     };
     std::unordered_map<std::string, ScopeEntry> scopes_;

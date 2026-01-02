@@ -99,6 +99,7 @@ void TickProfiler::end_scope(std::string_view name) {
         auto end_time = Clock::now();
         f64 duration_us = std::chrono::duration<f64, std::micro>(end_time - it->second.start).count();
         it->second.accumulated_us += duration_us;
+        it->second.max_us = std::max(it->second.max_us, duration_us);
         it->second.call_count++;
     }
     current_scope_.clear();
@@ -179,6 +180,7 @@ std::vector<TickProfiler::ScopeStats> TickProfiler::get_scope_stats() const {
         s.total_time_us = entry.accumulated_us;
         s.call_count = entry.call_count;
         s.average_time_us = entry.call_count > 0 ? entry.accumulated_us / entry.call_count : 0.0;
+        s.max_time_us = entry.max_us;
         stats.push_back(s);
     }
 

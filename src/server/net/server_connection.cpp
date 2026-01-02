@@ -3,6 +3,10 @@
 #include <enet/enet.h>
 #include <iostream>
 
+#ifdef ENABLE_PROFILING
+#include "../profiling/profiler.hpp"
+#endif
+
 namespace city {
 
 ServerConnection::ServerConnection(Server& server) : server_(server) {
@@ -52,24 +56,62 @@ void ServerConnection::update() {
     if (!host_) return;
 
     ENetEvent event;
-    while (enet_host_service(static_cast<ENetHost*>(host_), &event, 0) > 0) {
+    int result;
+
+    // Poll for events
+#ifdef ENABLE_PROFILING
+    server_.profiler().begin_scope("enet_host_service");
+#endif
+    result = enet_host_service(static_cast<ENetHost*>(host_), &event, 0);
+#ifdef ENABLE_PROFILING
+    server_.profiler().end_scope("enet_host_service");
+#endif
+
+    while (result > 0) {
         switch (event.type) {
             case ENET_EVENT_TYPE_CONNECT:
+#ifdef ENABLE_PROFILING
+                server_.profiler().begin_scope("net::on_connect");
+#endif
                 on_connect(event.peer);
+#ifdef ENABLE_PROFILING
+                server_.profiler().end_scope("net::on_connect");
+#endif
                 break;
 
             case ENET_EVENT_TYPE_DISCONNECT:
+#ifdef ENABLE_PROFILING
+                server_.profiler().begin_scope("net::on_disconnect");
+#endif
                 on_disconnect(event.peer);
+#ifdef ENABLE_PROFILING
+                server_.profiler().end_scope("net::on_disconnect");
+#endif
                 break;
 
             case ENET_EVENT_TYPE_RECEIVE:
+#ifdef ENABLE_PROFILING
+                server_.profiler().begin_scope("net::on_receive");
+#endif
                 on_receive(event.peer, event.packet->data, event.packet->dataLength);
                 enet_packet_destroy(event.packet);
+#ifdef ENABLE_PROFILING
+                server_.profiler().end_scope("net::on_receive");
+#endif
                 break;
 
             default:
                 break;
         }
+
+        // Get next event
+#ifdef ENABLE_PROFILING
+        server_.profiler().begin_scope("enet_host_service");
+#endif
+        result = enet_host_service(static_cast<ENetHost*>(host_), &event, 0);
+#ifdef ENABLE_PROFILING
+        server_.profiler().end_scope("enet_host_service");
+#endif
     }
 }
 
