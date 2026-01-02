@@ -49,3 +49,8 @@ endif()
 add_executable(city_server main.cpp)
 
 target_link_libraries(city_server PRIVATE city_server_lib)
+
+# Platform-specific settings for server executable
+if(WIN32)
+    target_link_libraries(city_server PRIVATE winmm)
+endif()

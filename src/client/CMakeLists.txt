@@ -38,4 +38,6 @@ target_link_libraries(city_client PRIVATE
 # Platform-specific settings
 if(UNIX AND NOT APPLE)
     target_link_libraries(city_client PRIVATE pthread)
+elseif(WIN32)
+    target_link_libraries(city_client PRIVATE winmm)
 endif()

@@ -3,6 +3,12 @@
 #include <iostream>
 #include <string>
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <timeapi.h>
+#endif
+
 void print_usage(const char* program) {
     std::cout << "Usage: " << program << " [options]\n"
               << "Options:\n"
@@ -12,6 +18,12 @@ void print_usage(const char* program) {
 }
 
 int main(int argc, char* argv[]) {
+#ifdef _WIN32
+    // Set Windows timer resolution to 1ms for accurate sleep timing
+    // Without this, sleep_for(1ms) can sleep up to 15.6ms
+    timeBeginPeriod(1);
+#endif
+
     std::cout << "City Client v0.1.0\n";
 
     std::string connect_host;
@@ -43,6 +55,9 @@ int main(int argc, char* argv[]) {
 
     if (!client.init()) {
         std::cerr << "Failed to initialize client\n";
+#ifdef _WIN32
+        timeEndPeriod(1);
+#endif
         return 1;
     }
 
@@ -51,6 +66,9 @@ int main(int argc, char* argv[]) {
         std::cout << "Connecting to " << connect_host << ":" << connect_port << "...\n";
         if (!client.connect(connect_host, connect_port)) {
             std::cerr << "Failed to connect to server\n";
+#ifdef _WIN32
+            timeEndPeriod(1);
+#endif
             return 1;
         }
     } else {
@@ -59,5 +77,8 @@ int main(int argc, char* argv[]) {
 
     client.run();
 
+#ifdef _WIN32
+    timeEndPeriod(1);
+#endif
     return 0;
 }
