@@ -1,5 +1,8 @@
 # Server library (shared between standalone server and client's embedded server)
 
+# Profiling option
+option(ENABLE_SERVER_PROFILER "Enable server profiler with ImGUI" ON)
+
 add_library(city_server_lib STATIC
     server.cpp
 
@@ -16,6 +19,16 @@ add_library(city_server_lib STATIC
     systems/input_processor.cpp
     systems/entity_sync.cpp
 )
+
+# Add profiling sources if enabled
+if(ENABLE_SERVER_PROFILER)
+    target_sources(city_server_lib PRIVATE
+        profiling/profiler.cpp
+        profiling/profiler_window.cpp
+    )
+    target_link_libraries(city_server_lib PUBLIC imgui)
+    target_compile_definitions(city_server_lib PUBLIC ENABLE_PROFILING)
+endif()
 
 target_include_directories(city_server_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

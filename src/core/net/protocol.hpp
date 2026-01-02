@@ -58,6 +58,11 @@ enum class MessageType : u8 {
     RoundEnd           = 0x51,
     RoundStatus        = 0x52,
 
+    // Profiling (0xD0 - 0xDF)
+    ProfileRequest     = 0xD0,  // Client requests profiling data
+    ProfileSnapshot    = 0xD1,  // Single tick snapshot
+    ProfileHistory     = 0xD2,  // Historical data batch
+
     // Admin (0xF0 - 0xFF)
     RconCommand        = 0xF0,
     RconResponse       = 0xF1,
@@ -114,7 +119,12 @@ constexpr Reliability get_reliability(MessageType type) {
         case MessageType::ContentChunk:
         case MessageType::RoundStart:
         case MessageType::RoundEnd:
+        case MessageType::ProfileRequest:
+        case MessageType::ProfileHistory:
             return Reliability::Reliable;
+
+        case MessageType::ProfileSnapshot:
+            return Reliability::UnreliableSequenced;
 
         default:
             return Reliability::ReliableOrdered;

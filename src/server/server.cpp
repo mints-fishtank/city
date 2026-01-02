@@ -63,8 +63,32 @@ bool Server::start(u16 port) {
 
     running_ = true;
     std::cout << "Server started on port " << port << "\n";
+
+#ifdef ENABLE_PROFILING
+    // Initialize profiler window by default
+    set_profiler_window_enabled(true);
+#endif
+
     return true;
 }
+
+#ifdef ENABLE_PROFILING
+void Server::set_profiler_window_enabled(bool enabled) {
+    if (enabled && !profiler_window_) {
+        profiler_window_ = std::make_unique<ProfilerWindow>();
+        if (!profiler_window_->init()) {
+            std::cerr << "Failed to initialize profiler window\n";
+            profiler_window_.reset();
+            return;
+        }
+        profiler_window_->set_profiler(&profiler_);
+        std::cout << "Profiler window enabled\n";
+    } else if (!enabled && profiler_window_) {
+        profiler_window_.reset();
+        std::cout << "Profiler window disabled\n";
+    }
+}
+#endif
 
 void Server::stop() {
     running_ = false;
@@ -85,35 +109,81 @@ void Server::run() {
 
         accumulator += dt;
 
+#ifdef ENABLE_PROFILING
+        profiler_.begin_phase(TickPhase::Network);
+#endif
         // Process network at frame rate
         process_network();
+#ifdef ENABLE_PROFILING
+        profiler_.end_phase();
+#endif
 
         // Fixed timestep for simulation
         while (accumulator >= fixed_dt) {
+#ifdef ENABLE_PROFILING
+            profiler_.begin_tick(current_tick_);
+#endif
             update(fixed_dt);
             ++current_tick_;
             accumulator -= fixed_dt;
 
+#ifdef ENABLE_PROFILING
+            profiler_.begin_phase(TickPhase::BroadcastState);
+#endif
             // Broadcast state after each tick
             broadcast_state();
+#ifdef ENABLE_PROFILING
+            profiler_.end_phase();
+            profiler_.end_tick();
+#endif
         }
+
+#ifdef ENABLE_PROFILING
+        // Update profiler window
+        if (profiler_window_ && !profiler_window_->update()) {
+            // Window was closed
+            profiler_window_.reset();
+        }
+#endif
 
         // Sleep to avoid spinning
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
+#ifdef ENABLE_PROFILING
+    // Clean up profiler window
+    if (profiler_window_) {
+        profiler_window_.reset();
+    }
+#endif
+
     std::cout << "Server stopped\n";
 }
 
 void Server::update(f32 dt) {
+#ifdef ENABLE_PROFILING
+    profiler_.begin_phase(TickPhase::InputProcessing);
+#endif
     // Process queued inputs
     input_processor_->update(world_, dt);
+#ifdef ENABLE_PROFILING
+    profiler_.end_phase();
 
+    profiler_.begin_phase(TickPhase::WorldUpdate);
+    profiler_.set_entity_count(static_cast<u32>(world_.entity_count()));
+#endif
     // Update game systems
     world_.update(dt);
+#ifdef ENABLE_PROFILING
+    profiler_.end_phase();
 
+    profiler_.begin_phase(TickPhase::RoundManager);
+#endif
     // Update round state
     round_manager_->update(dt);
+#ifdef ENABLE_PROFILING
+    profiler_.end_phase();
+#endif
 }
 
 void Server::process_network() {

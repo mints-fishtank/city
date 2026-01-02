@@ -5,6 +5,12 @@
 #include "core/net/protocol.hpp"
 #include "core/net/message.hpp"
 #include "core/content/content_manifest.hpp"
+
+#ifdef ENABLE_PROFILING
+#include "profiling/profiler.hpp"
+#include "profiling/profiler_window.hpp"
+#endif
+
 #include <memory>
 #include <string>
 
@@ -40,6 +46,16 @@ public:
     TileMap& tilemap() { return tilemap_; }
     u32 current_tick() const { return current_tick_; }
 
+#ifdef ENABLE_PROFILING
+    // Profiler access
+    TickProfiler& profiler() { return profiler_; }
+    const TickProfiler& profiler() const { return profiler_; }
+
+    // Enable/disable profiler window
+    void set_profiler_window_enabled(bool enabled);
+    bool is_profiler_window_enabled() const { return profiler_window_ != nullptr; }
+#endif
+
     // Handle client events (called by ServerConnection)
     void on_client_connected(ClientSession& session);
     void on_client_disconnected(ClientSession& session);
@@ -64,6 +80,12 @@ private:
     std::unique_ptr<RoundManager> round_manager_;
     std::unique_ptr<InputProcessor> input_processor_;
     std::unique_ptr<EntitySync> entity_sync_;
+
+#ifdef ENABLE_PROFILING
+    // Profiling
+    TickProfiler profiler_;
+    std::unique_ptr<ProfilerWindow> profiler_window_;
+#endif
 };
 
 } // namespace city

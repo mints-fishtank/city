@@ -1,6 +1,14 @@
 # Third-party dependencies using FetchContent
 include(FetchContent)
 
+# ImGui - immediate mode GUI for debug/profiling
+FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG v1.91.6
+    GIT_SHALLOW TRUE
+)
+
 # SDL3
 FetchContent_Declare(
     SDL3
@@ -103,3 +111,26 @@ if(WIN32)
     target_link_libraries(enet PUBLIC ws2_32 winmm)
     target_compile_definitions(enet PRIVATE _WIN32_WINNT=0x0600)
 endif()
+
+# ImGui - build with SDL3 renderer backend
+FetchContent_GetProperties(imgui)
+if(NOT imgui_POPULATED)
+    FetchContent_Populate(imgui)
+endif()
+
+add_library(imgui STATIC
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_demo.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlrenderer3.cpp
+)
+
+target_include_directories(imgui PUBLIC
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
+)
+
+target_link_libraries(imgui PUBLIC SDL3::SDL3)
